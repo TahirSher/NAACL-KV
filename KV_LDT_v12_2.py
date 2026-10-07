@@ -1,33 +1,3 @@
-"""
-KV_LDT_v12_2.py — Lexical fidelity of training-free cross-layer KV sharing in LLMs.
-
-Changes relative to v12.1 (each one closes a defect found in a full review):
-  1. H6 / H8c alignment: the per-model Spearman correlation over runs pooled runs with
-     different numbers of substituted layers k, so a positive value was guaranteed by
-     dose alone.  The primary statistic is now a partial (within-k) rank correlation
-     with a stratified permutation test; the pooled correlation is kept as descriptive.
-  2. Null-set tests are described as what they are: percentile-rank (reference
-     distribution) tests whose validity rests on exchangeability of the selected map
-     with the null draws under H0, which deterministic selection does not guarantee.
-  3. AUC-based frequency selectivity (sel_auc) is ceiling-biased toward "LF damaged
-     more"; it is descriptive only.  The scale-free sel_d is reported everywhere and
-     plotted; decisions use the evidence-based H2 / H7b analyses.
-  4. Partner criteria are measured on ALL positions that the substitution acts on
-     (BOS / attention sink, template prefix and stimulus), not on stimulus rows only.
-     Layer means are token-occurrence weighted (as in KVSharer); CKA uses the distinct
-     prefix states once plus a deterministic subsample of stimulus rows.
-  5. Readout layers (fragility scan, RQ8a peak) are chosen on VALIDATION AUC, never on
-     the test items they are then evaluated on.
-  6. H5 (fragility peak depth) is evaluated over the eligible layers the policies act
-     on; the all-layer peak (dominated by layer 1 reading layer 0) is descriptive.
-  7. KVSharer-style search: final-state cosine over all positions after the final norm;
-     an unverified acceptance threshold is flagged in every output.
-  8. Non-finite states: rows are excluded (NaN) from probe fitting and evaluation
-     instead of being set to 0 and scored.
-  9. Bootstrap strata with fewer than MIN_STRATUM_SIZE items are merged hierarchically.
- 10. Models-as-units Wilcoxon tests need >= MIN_MODELS_WILCOXON models (n = 5 cannot
-     reach p < .05); the log file is written to OUTPUT_DIR.
-"""
 import os
 
 for _v in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
@@ -228,40 +198,37 @@ class ExperimentConfig:
     PRIMARY_GATE_FRACTION: float = 1.0 / 3.0
     GATED_FAMILIES: List[str] = field(default_factory=lambda: [
         "cka_high", "cka_low", "kvdist_low", "kvdist_high", "fidelity_high"])
-    N_NULL_DRAWS: int = 50                         # null target sets per random family
-    N_AUX_DRAWS: int = 3                           # null draws that also get behaviour (+ generation)
+    N_NULL_DRAWS: int = 50                         
+    N_AUX_DRAWS: int = 3                           
     DEPTH_BINS: int = 3
     COUNTERFACTUAL_ENABLED: bool = True
-    CALIB_N_ITEMS: int = 1024                      # drawn from the TRAIN split
-    CALIB_MAX_ROWS: int = 4096                     # stimulus rows kept for CKA / row-wise distance
-    # KVSharer acceptance: mean cosine (over all positions) of final-norm states with vs
-    # without the map on calibration items.  KVSharer's own threshold must be copied from
-    # its released configuration before the full run; set KVSHARER_THRESHOLD_VERIFIED
-    # only after doing so.  Until then every output labels the search "unverified".
+    CALIB_N_ITEMS: int = 1024                     
+    CALIB_MAX_ROWS: int = 4096                    
+    
     KVSHARER_COS_THRESHOLD: float = float(os.environ.get("KV_KVSHARER_THRESHOLD", 0.90))
     KVSHARER_THRESHOLD_VERIFIED: bool = os.environ.get("KV_KVSHARER_THRESHOLD_VERIFIED", "").lower() in (
         "1", "true", "yes")
     KVSHARER_CHECK_ITEMS: int = 256
 
     # ── Inference ─────────────────────────────────────────────────────
-    N_BANDS: int = 3                               # early / middle / late eligible
+    N_BANDS: int = 3                               
     N_BOOTSTRAP: int = 2000
     N_BOOTSTRAP_FRAGILITY: int = 1000
     N_PERMUTATIONS: int = 10000
-    MIN_STRATUM_SIZE: int = 20                     # bootstrap cells smaller than this are merged
-    MIN_ALIGNMENT_RUNS: int = 6                    # runs needed for a within-k alignment correlation
+    MIN_STRATUM_SIZE: int = 20                     
+    MIN_ALIGNMENT_RUNS: int = 6                    
     ALPHA: float = 0.05
     DECISION_MIN_MODEL_FRACTION: float = 7.0 / 9.0
     MIN_MODELS_WILCOXON: int = 6
     H5_EARLY_DEPTH: float = 0.60
-    CEILING_AUC: float = 0.98                      # no_reuse band AUC at/above -> Cohen's d primary
-    FLOOR_AUC: float = 0.60                        # policy band AUC at/below -> lexical floor
-    NEG_CONTROL_ATOL: float = 1e-3                 # max |logit change| allowed in exact negative controls
-    LINEAR_ADEQUACY_TOL: float = 0.02              # RQ8b: tolerated MLP - linear test AUC
+    CEILING_AUC: float = 0.98                      
+    FLOOR_AUC: float = 0.60                       
+    NEG_CONTROL_ATOL: float = 1e-3                
+    LINEAR_ADEQUACY_TOL: float = 0.02              
 
     # ── Matching ──────────────────────────────────────────────────────
     MATCH_COVARIATES: List[str] = field(default_factory=lambda: ["length", "ortho_n", "bg_mean"])
-    MATCH_CALIPER_SD: float = 0.25                 # per-covariate SD units
+    MATCH_CALIPER_SD: float = 0.25                 
 
     # ── Probe reliability ─────────────────────────────────────────────
     RELIABILITY_ENABLED: bool = True
